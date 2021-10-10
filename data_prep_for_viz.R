@@ -4,9 +4,29 @@
 library(lubridate)
 library(dplyr)
 
+# load data
 fbi <- read.csv('output/fbi_most_wanted.csv',stringsAsFactors = F)
+women <- c('Ruth Eisemann-Schier'
+           ,'Marie Dean Arrington'
+           ,'Angela Yvonne Davis'
+           ,'Bernardine Rae Dohrn'
+           ,'Katherine Ann Power'
+           ,'Susan Edith Saxe'
+           ,'Donna Jean Willmott'
+           ,'Shauntay L. Henderson'
+           ,'Brenda Delgado'
+           ,'Shanika S. Minor')
+
+# split data, metadata and date ranges, join later on number
 fbi_meta <- fbi[, c("number","name","description")]
 fbi_df <- fbi[, c("number","date_placed_on_list","date_located")]
+
+# Enriching metadata
+fbi_meta$dismissed <- grepl('dismiss',tolower(fbi_meta$description))
+fbi_meta$removed <- grepl('removed',tolower(fbi_meta$description))
+fbi_meta$women <- fbi_meta$name %in% women
+fbi_meta$repeat_offenders <- fbi_meta$name %in% filter(fbi_meta %>% count(name),n>1)$name
+fbi_meta$still_on_list <- fbi_meta$name %in% fbi[fbi$date_located == 'still on list',]$name
 
 # convert dates from month/day/year to year-month-day
 fbi_df$date_placed_on_list <- mdy(fbi_df$date_placed_on_list)
