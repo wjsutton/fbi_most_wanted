@@ -17,6 +17,9 @@ women <- c('Ruth Eisemann-Schier'
            ,'Brenda Delgado'
            ,'Shanika S. Minor')
 
+famous_cases <- read.csv('data/famous_cases.csv',stringsAsFactors = F)
+names(famous_cases)[1] <- 'number'
+
 # split data, metadata and date ranges, join later on number
 fbi_meta <- fbi[, c("number","name","description")]
 fbi_df <- fbi[, c("number","date_placed_on_list","date_located")]
@@ -24,6 +27,7 @@ fbi_df <- fbi[, c("number","date_placed_on_list","date_located")]
 # Enriching metadata
 fbi_meta$dismissed <- grepl('dismiss',tolower(fbi_meta$description))
 fbi_meta$removed <- grepl('removed',tolower(fbi_meta$description))
+fbi_meta$found_dead <- grepl('dead|remains were located|skeletal remains|self-inflicted shotgun wound',tolower(fbi_meta$description))
 fbi_meta$women <- fbi_meta$name %in% women
 fbi_meta$repeat_offenders <- fbi_meta$name %in% filter(fbi_meta %>% count(name),n>1)$name
 fbi_meta$still_on_list <- fbi_meta$name %in% fbi[fbi$date_located == 'still on list',]$name
@@ -35,7 +39,7 @@ fbi_df$date_located <- mdy(fbi_df$date_located)
 # replace NAs with today's date
 fbi_df[is.na(fbi_df)] <- Sys.Date()
 
-max_lanes <- 30
+max_lanes <- 24
 
 # initial swim lane lookup to put items in a lane so no date overlap
 swim_lanes <- data.frame(col=1:max_lanes ,stringsAsFactors = F)
@@ -76,5 +80,33 @@ for(i in loop_start:max(fbi_df$number)){
 
 fbi_df <- left_join(fbi_df,lane_lookup_df,by='number')
 fbi_df <- inner_join(fbi_df,fbi_meta,by='number')
+fbi_df <- left_join(fbi_df,famous_cases,by='number')
 
-write.csv(fbi_df,'output/fbi_most_wanted_with_lanes.csv',row.names = F)
+# Rejig numbers
+fbi_df[fbi_df$number == 436,"col"] <- 15
+fbi_df[fbi_df$number == 229,"col"] <- 17
+fbi_df[fbi_df$number == 223,"col"] <- 22
+fbi_df[fbi_df$number == 295,"col"] <- 12
+fbi_df[fbi_df$number == 255,"col"] <- 22
+fbi_df[fbi_df$number == 475,"col"] <- 9
+fbi_df[fbi_df$number %in% c(481,496,511),"col"] <- 8
+
+fbi_df[fbi_df$number == 123,"col"] <- 7
+fbi_df[fbi_df$number == 113,"col"] <- 11
+fbi_df[fbi_df$number == 51,"col"] <- 7
+fbi_df[fbi_df$number == 59,"col"] <- 19
+fbi_df[fbi_df$number == 28,"col"] <- 23
+fbi_df[fbi_df$number == 23,"col"] <- 12
+fbi_df[fbi_df$number == 188,"col"] <- 17
+fbi_df[fbi_df$number == 105,"col"] <- 17
+fbi_df[fbi_df$number == 104,"col"] <- 8
+fbi_df[fbi_df$number == 464,"col"] <- 17
+fbi_df[fbi_df$number == 459,"col"] <- 23
+
+fbi_df$on_list_date <- fbi_df$date_placed_on_list
+fbi_df$off_list_date <- fbi_df$date_located
+
+fbi_df$date_located <- as.Date(ifelse(fbi_df$date_located<fbi_df$date_placed_on_list,fbi_df$date_placed_on_list,fbi_df$date_located), origin = "1970-01-01")
+fbi_df$days_on_list <- difftime(fbi_df$off_list_date, fbi_df$on_list_date, units = "days") 
+
+write.csv(fbi_df,'output/fbi_most_wanted_with_lanes.csv',row.names = F, fileEncoding="UTF-8")
